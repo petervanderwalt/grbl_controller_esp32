@@ -4,7 +4,7 @@
 // pour cela, on peut employer une fonction prévue Serial2.setRxBufferSize(size_t)
 
 // to do
-// retirer les serial.print qui ont servi au debug
+
 // permettre l'accès au contenu du fichier SD seulement si le statut est print from SD en pause. 
 
 // prévoir de pouvoir faire un "continue" quand on a une pause alors que l'on est en train d'envoyer des CMD ou des STRING vers GRBL 
@@ -157,7 +157,7 @@ void setup() {
   uart_dev_t * dev = (volatile uart_dev_t *)(DR_REG_UART_BASE) ;
   dev->conf1.rxfifo_full_thrhd = 1 ;  // set the number of char received on Serial to 1 before generating an interrupt (original value is 112 and is set by esp32-hal-uart.c)
                                       // this increase the number of interrupts but it allows to forward the char to Serial2 faster
-  Serial.print(" setup: rxfifo size before interrupt="); Serial.println(dev->conf1.rxfifo_full_thrhd) ;
+  //Serial.print(" setup: rxfifo size before interrupt="); Serial.println(dev->conf1.rxfifo_full_thrhd) ;
   
     // initialise le port série vers grbl
   Serial2.begin(115200, SERIAL_8N1, SERIAL2_RXPIN, SERIAL2_TXPIN); // initialise le port série vers grbl
@@ -244,10 +244,16 @@ void loop() {
   sendToGrbl() ;           // s'il y de la place libre dans le Tx buffer, le rempli avec le fichier de SD, une CMD ou le flux du PC; envoie périodiquement "?" pour demander le statut
 //  if (newGrblStatusReceived) Serial.println( "newStatus");
 
-  if (newGrblStatusReceived == true && ( currentPage == _P_INFO || currentPage == _P_MOVE || currentPage == _P_SETXYZ || currentPage == _P_SETUP || 
-      currentPage == _P_TOOL || currentPage == _P_OVERWRITE ) ) { //force a refresh if a message has been received from GRBL and we are in a info screen or in a info screen
-    updatePartPage = true ;
+  if (newGrblStatusReceived == true) {
+    if( statusPrinting == PRINTING_FROM_SD  && machineStatus[0] == 'H' ) { // If printing from SD and GRBL is paused
+      // set PRINTING_PAUSED
+      statusPrinting = PRINTING_PAUSED ;
+      updateFullPage = true ; // We want to get the resume button 
+    } else if ( currentPage == _P_INFO || currentPage == _P_MOVE || currentPage == _P_SETXYZ || currentPage == _P_SETUP || currentPage == _P_TOOL || currentPage == _P_OVERWRITE ) { //force a refresh if a message has been received from GRBL and we are in a info screen or in a info screen
+        updatePartPage = true ;
+    } // end else if
   }
+      
   newGrblStatusReceived = false ;
   if (lastMsgChanged == true && ( currentPage == _P_INFO || currentPage == _P_MOVE || currentPage == _P_SETXYZ || currentPage == _P_SETUP || currentPage == _P_TOOL) ) { //force a refresh if a message has been filled
     updatePartPage = true ;
